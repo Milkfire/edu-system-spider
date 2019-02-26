@@ -60,7 +60,7 @@ if (E.length > 16) {
     E = core_md5(E, C.length * chrsz)
 }
 ```
-由于总共有200行代码就不全展示，有兴趣的可以自行[百度](http://buhuibaidu.me/)，主要是教务系统不仅仅MD5加密还^TM^加'盐'，但是知道js运行方式就可以模拟出加密结果，具体方法见[江汉大学教务处.py](https://github.com/Milkfire/edu-system-spider/blob/master/江汉大学教务处.py)
+由于总共有200行代码就不全展示，有兴趣的可以自行[百度](http://buhuibaidu.me/)，主要是教务系统不仅仅MD5加密还^TM^加'盐'，但是知道js运行方式就可以模拟出加密结果，具体方法见[江汉大学教务处.py](https://github.com/Milkfire/edu-system-spider/blob/master/江汉大学教务系统爬虫/md5.py)
 
 3.还是佩服江汉大学教务系统的系统防御力，如果你还没有看我写的东西~~(那根本不能叫代码)~~，建议自己亲手操作一波😜😜😜，当然前提是你已经能够爬取一些静态网页以及了解HTTP的GET、POST请求
 
