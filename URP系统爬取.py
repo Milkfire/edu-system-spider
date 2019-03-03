@@ -1,7 +1,8 @@
 import re
-
+from bs4 import BeautifulSoup
 import requests
-
+from lxml import etree
+import json
 
 """
 教务系统爬虫
@@ -15,12 +16,12 @@ import requests
 # 登陆VPN网站
 def link_VPN(session, headers):
     url = session.get('http://jwxt.tcu.edu.cn/loginAction.do')
-    username = input('校园网账号：')
-    password = input('校园网密码：')
+    # username = input('校园网账号：')
+    # password = input('校园网密码：')
     data = {
         "auth_type": "local",
-        "username": username,
-        "password": password,
+        "username": "1705080207",  # username,
+        "password": "19970515",  # password,
     }
     session.post("http://webvpn.tcu.edu.cn/wengine-auth/login/", headers=headers, data=data)
 
@@ -41,16 +42,16 @@ def login_eduSystem(session, headers):
         "eflag": "",
         "fs": "",
         "dzslh": "",
-        "zjh": "1705080208",
-        "mm": "1705080208",
+        "zjh": "1705080209",
+        "mm": "1705080209",
         "v_yzm": validataCode,
     }
     login = session.post('http://jwxt.tcu.edu.cn/loginAction.do', headers=headers, data=login_data)
 
 
 # 爬取本学期各项成绩
-def get_semesterGrade():
-    inquire_grade = session.get('http://jwxt.tcu.edu.cn/bxqcjcxAction.do',headers = headers)
+def get_semesterGrade(session, headers):
+    inquire_grade = session.get('http://jwxt.tcu.edu.cn/bxqcjcxAction.do', headers=headers)
     # title是第一行标题
     # table是每行成绩数据
     title = []
@@ -61,26 +62,96 @@ def get_semesterGrade():
     tit2 = re.findall(title_2, inquire_grade.text)
     title.extend(tit1)
     title.extend(tit2)
-    text = re.compile('<td align="center">(.*?)</td>',re.S)
+    text = re.compile('<td align="center">(.*?)</td>', re.S)
     t = re.findall(text, inquire_grade.text)
     for i in range(len(t)):
         table[i] = t[i].strip()
 
 
-# 爬取本学期课表
-def get_semesterCurr():
-    curriculum = session.get("http://jwxt.tcu.edu.cn/xkAction.do?actionType=6",headers = headers)
-    class_time = re.compile('<td width="11%">(.*?)</td>')
-    time = re.findall(class_time, curriculum.text)
-    print(time)
-    class_content = re.compile(r'<td>&nbsp;\r\n\r\n(.*?)\r\n\r\n</td>',re.S)
-    content = re.findall(class_content, curriculum.text)
-    for i in range(len(content)):
-        if(content[i] == '&nbsp;'):
-            content[i] = ''
-            content[i] = content[i].strip(' ')
-    print(content)
+def cache(cache, class_num):
+    cache["class_pyfa"] = ''.join(class_num[0].split())
+    cache["class_num"] = ''.join(class_num[1].split())
+    cache["class_name"] = ''.join(class_num[2].split())
+    cache["class_order"] = ''.join(class_num[3].split())
+    cache["grade"] = ''.join(class_num[4].split())
+    cache["class_attribute"] = ''.join(class_num[5].split())
+    cache["test"] = ''.join(class_num[6].split())
+    cache["teacher"] = (''.join(class_num[7].split()))[:-1]
+    cache["learn"] = ''.join(class_num[9].split())
+    cache["class_status"] = ''.join(class_num[10].split())
+    return cache
 
+
+# 爬取本学期课表
+def get_semesterCurr(session, headers):
+    curriculum = session.get("http://jwxt.tcu.edu.cn/xkAction.do?actionType=6", headers=headers)
+    tree = etree.HTML(curriculum.text)
+    # print(tree.xpath('//tr[@onmouseout="this.className=\'even\';"]'))
+    tr_list = tree.xpath('//tr[@onmouseout="this.className=\'even\';"]')
+    cache = {}
+    class_list = []
+    # count = 0
+    for i_content in tr_list:
+        class_info = {}
+        class_num = i_content.xpath('./td/text()')
+        if len(class_num) > 7:
+            # 培养方案
+            class_info["class_pyfa"] = ''.join(class_num[0].split())
+            # 课程号
+            class_info["class_num"] = ''.join(class_num[1].split())
+            # 课程名
+            class_info["class_name"] = ''.join(class_num[2].split())
+            # 课序号
+            class_info["class_order"] = ''.join(class_num[3].split())
+            # 学分
+            class_info["grade"] = ''.join(class_num[4].split())
+            # 课程属性
+            class_info["class_attribute"] = ''.join(class_num[5].split())
+            # 考试类型
+            class_info["test"] = ''.join(class_num[6].split())
+            # 教师
+            class_info["teacher"] = (''.join(class_num[7].split()))[:-1]
+            # 修读方式
+            class_info["learn"] = ''.join(class_num[9].split())
+            # 选课状态
+            class_info["class_status"] = ''.join(class_num[10].split())
+            # 对class_info进行缓存（采用copy方法进行浅拷贝即可）
+            cache = class_info.copy()
+            # 周次
+            class_info["week"] = ''.join(class_num[11].split())
+            # 星期
+            class_info["week_day"] = ''.join(class_num[12].split())
+            # 节次
+            class_info["session"] = ''.join(class_num[13].split())
+            # 节数
+            class_info["section_num"] = ''.join(class_num[14].split())
+            # 校区
+            class_info["campus"] = ''.join(class_num[15].split())
+            # 教学楼
+            class_info["teach_build"] = ''.join(class_num[16].split())
+            # 教室
+            class_info["classroom"] = ''.join(class_num[17].split())
+        else:
+            class_info = cache
+            # 周次
+            class_info["week"] = ''.join(class_num[0].split())
+            # 星期
+            class_info["week_day"] = ''.join(class_num[1].split())
+            # 节次
+            class_info["session"] = ''.join(class_num[2].split())
+            # 节数
+            class_info["section_num"] = ''.join(class_num[3].split())
+            # 校区
+            class_info["campus"] = ''.join(class_num[4].split())
+            # 教学楼
+            class_info["teach_build"] = ''.join(class_num[5].split())
+            # 教室
+            class_info["classroom"] = ''.join(class_num[6].split())
+        class_list.append(class_info)
+    for class_info in class_list:
+        print(class_info)
+    with open ('class.json', 'w') as f:
+        json.dump(class_list, f)
 
 def main():
     session = requests.session()
@@ -89,8 +160,9 @@ def main():
     }
     link_VPN(session, headers)
     login_eduSystem(session, headers)
-    get_semesterGrade()
-    get_semesterCurr()
+    # get_semesterGrade(session, headers)
+    get_semesterCurr(session, headers)
+
 
 main()
 # print(t)
